@@ -51,10 +51,16 @@
                     .attr("stroke", "black")
                     .attr("stroke-width", 0.5);
 
-                //color scale for trees
-                const speciesTypes = Array.from(new Set(data.map(d => (d.qSpecies?.split(':: ')[1] || 'Unknown'))));
+                //color scale for trees based on who their caretaker is
+                const ownerCounts = {};
+                data.forEach(d => {
+                    const owner = d.qCaretaker || "Unknown";
+                    ownerCounts[owner] = (ownerCounts[owner] || 0) + 1;
+                });
+
+                const ownerTypes = Object.keys(ownerCounts);
                 const colorScale = d3.scaleOrdinal()
-                    .domain(speciesTypes)
+                    .domain(ownerTypes)
                     .range(d3.schemeCategory10);
 
                 //plot trees
@@ -73,25 +79,41 @@
                             return coords ? coords[1] : null;
                         }})
                         .attr("r", 1)
-                        .attr("fill", d => colorScale(d.qSpecies || "Unknown"))
+                        .attr("fill", d => colorScale(d.qCaretaker || "Unknown"))
                         .attr("opacity", 0.7);
 
                         const legend = svg.append("g").attr("transform", "translate(10, 10)");
 
-                speciesTypes.forEach((type, i) => {
-                legend.append("circle")
-                    .attr("cx", 0)
-                    .attr("cy", i * 15)
-                    .attr("r", 5)
-                    .attr("fill", colorScale(type));
+                ownerTypes.forEach((type, i) => {
+                    legend.append("circle")
+                        .attr("cx", 0)
+                        .attr("cy", i * 15)
+                        .attr("r", 5)
+                        .attr("fill", colorScale(type));
 
-                legend.append("text")
-                    .attr("x", 10)
-                    .attr("y", i * 15 + 5)
-                    .text(type)
-                    .attr("font-size", "10px")
-                    .attr("alignment-baseline", "middle");
-                });
+                    legend.append("text")
+                        .attr("x", 10)
+                        .attr("y", i * 15 + 5)
+                        .text(type)
+                        .attr("font-size", "10px")
+                        .attr("alignment-baseline", "middle");
+                })
+
+                ownerTypes.forEach((type, i) => {
+                    legend.append("circle")
+                        .attr("cx", 0)
+                        .attr("cy", i * 15)
+                        .attr("r", 5)
+                        .attr("fill", colorScale(type));
+
+                    legend.append("text")
+                        .attr("x", 10)
+                        .attr("y", i * 15 + 5)
+                        .text(`${type}: ${ownerCounts[type]} trees`)
+                        .attr("font-size", "10px")
+                        .attr("alignment-baseline", "middle");
+                })
+         
             };   
             loadPlot();
             
