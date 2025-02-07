@@ -1,0 +1,35 @@
+<head>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+
+        .gridlines line{
+            stroke: #bbb;
+        }
+        
+        .grindline .domain{
+            stroke: none;
+        }
+        
+        </style>
+</head>
+
+<body>
+        <svg id="plot" height="500" width="600" style="margin-top:50px"> </svg>
+        <script>
+            const svg = d3.select("svg#plot");
+            const width = svg.attr("width");
+            const height = svg.attr("height");
+            const margin = {top: 20, right: 20, bottom: 20, left: 20};
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            let annotations = svg.append("g").attr("id","annotations");
+
+            const loadPlot = async function(){
+                let data = await d3.csv("./Street_Tree_List-2022-01-30_FILTERED.csv", d3.autoType)
+                console.log(data);
+            }
+            loadPlot();
+            
+        </script>
+</body>
