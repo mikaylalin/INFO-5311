@@ -15,7 +15,9 @@
 </head>
 
 <body>
+        <h1>Trees and their Caretakers in San Francisco</h1>
         <svg id="plot" height="500" width="1200" style="margin-top:50px"> </svg>
+        <div id="group-specific-maps" style="margin-top: 50px;"></div>
         <script>
             //chart setup
             const svg = d3.select("svg#plot");
@@ -51,26 +53,30 @@
                     .attr("stroke", "black")
                     .attr("stroke-width", 0.5);
 
-                //color scale for trees based on what group their caretaker falls into
+                //note individual caretakers
                 const caretakerCounts = {};
+                data.forEach(d => {
+                    const caretaker = d.qCaretaker || "Unknown";
+                    caretakerCounts[caretaker] = (caretakerCounts[caretaker] || 0) + 1;
+                });
+
+                //colors for trees based on what group their caretaker falls into
                 const caretakerGroups = {
                     "Private": ["Private"],
-                    "Public Safety & Infrastructure": ["Police Dept", "Fire Dept", "DPW", "Port", "Rec/Park", "PUC"],
-                    "Government & Administrative Offices": ["Mayor's Office of Housing", "Office of Major", "Dept of Real Estate", "Purchasing Dept", "Health"],
+                    "Public Safety & Infrastructure": ["Police Dept", "Fire Dept", "DPW", "DPW for City Agency", "Port", "Rec/Park", "PUC", "MTA"],
+                    "Government & Administrative Offices": ["Mayor Office of Housing", "Office of Mayor", "Dept of Real Estate", "Purchasing Dept", "Health Dept"],
                     "Arts & Culture": ["Asian Arts Commission", "War Memorial", "Arts Commission", "Public Library", "Housing Authority", "Mission Verde"],
                     "Schools": ["City College", "SFUSD"]
                 };
-
                 const groupColors = {
                     "Private": "#9370DB", //medium purple
                     "Public Safety & Infrastructure": "orange",
-                    "Government & Administrative Offices": "pink",
+                    "Government & Administrative Offices": "#4682B4", //medium blue
                     "Arts & Culture": "red",
                     "Schools": "green",
-                    "Unknown": "#4682B4" //medium blue
                 };
 
-                //groups
+                //categorize into groups
                 const caretakerToGroup = {};
                 Object.entries(caretakerGroups).forEach(([group, caretakers]) => {
                     caretakers.forEach(caretaker => {
@@ -85,86 +91,111 @@
                     groupCounts[group] = (groupCounts[group] || 0) + 1;
                 });
 
-                //individual caretakers
-                data.forEach(d => {
-                    const caretaker = d.qCaretaker || "Unknown";
-                    caretakerCounts[caretaker] = (caretakerCounts[caretaker] || 0) + 1;
-                });
-
-                const caretakerTypes = Object.keys(caretakerCounts);
-                const colorScale = d3.scaleOrdinal()
-                    .domain(caretakerTypes)
-                    .range(d3.schemeCategory10);
-
                 //plot trees
                 svg.selectAll("circle")
                     .data(data)
                     .enter()
                     .append("circle")
                     .attr("cx", d => {
-                    if (d.Longitude && d.Latitude) {
-                        const coords = projection([d.Longitude, d.Latitude]);
-                        return coords ? coords[0] : null;
-                    }})
+                        if (d.Longitude && d.Latitude) {
+                            const coords = projection([d.Longitude, d.Latitude]);
+                            return coords ? coords[0] : null;
+                     }})
                     .attr("cy", d => {
                         if (d.Longitude && d.Latitude) {
                             const coords = projection([d.Longitude, d.Latitude]);
                             return coords ? coords[1] : null;
-                        }})
+                    }})
+                    .attr("r", 1)
+                    .attr("fill", d => {
+                        const caretaker = d.qCaretaker || "Unknown";
+                        const group = caretakerToGroup[caretaker] || "Unknown";
+                        return groupColors[group];
+                        })
+                    .attr("opacity", 0.5);
+
+                const overviewLegend = svg.append("g").attr("transform", "translate(10, 10)");
+                Object.entries(groupCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .forEach(([group, count], i) => {
+                            overviewLegend.append("circle")
+                                .attr("cx", 0)
+                                .attr("cy", i * 20)
+                                .attr("r", 5)
+                                .attr("fill", groupColors[group]);
+
+                            overviewLegend.append("text")
+                                .attr("x", 10)
+                                .attr("y", i * 20 + 5)
+                                .text(`${group}: ${count || 0} trees`)
+                                .attr("alignment-baseline", "middle");
+                });
+
+                //maps for each group
+                Object.keys(caretakerGroups).forEach(group => {
+                    const groupData = data.filter(d => caretakerGroups[group].includes(d.qCaretaker));
+                    const groupDiv = d3.select("#group-specific-maps").append("div").style("margin-top", "40px");
+                    groupDiv.append("h2").text(`${group} Tree Caretakers in SF`);
+
+                    const specificCaretakerCounts = {};
+                    groupData.forEach(d => {
+                        specificCaretakerCounts[d.qCaretaker] = (specificCaretakerCounts[d.qCaretaker] || 0) + 1;
+                    });
+
+                    const groupSvg = groupDiv.append("svg")
+                        .attr("width", 1200)
+                        .attr("height", 500);
+
+                    groupSvg.selectAll("path")
+                        .data(neighborhood.features)
+                        .enter()
+                        .append("path")
+                        .attr("d", path)
+                        .attr("fill", "white")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", 0.5);
+
+                    //plot trees
+                    groupSvg.selectAll("circle")
+                        .data(groupData)
+                        .enter()
+                        .append("circle")
+                        .attr("cx", d => {
+                            if (d.Longitude && d.Latitude) {
+                                const coords = projection([d.Longitude, d.Latitude]);
+                                return coords ? coords[0] : null;
+                            }
+                        })
+                        .attr("cy", d => {
+                            if (d.Longitude && d.Latitude) {
+                                const coords = projection([d.Longitude, d.Latitude]);
+                                return coords ? coords[1] : null;
+                            }
+                        })
                         .attr("r", 1)
                         .attr("fill", d => {
-                            const caretaker = d.qCaretaker || "Unknown";
-                            const group = caretakerToGroup[caretaker] || "Unknown";
-                            return groupColors[group];
-                        })
+                                const caretaker = d.qCaretaker || "Unknown";
+                                const group = caretakerToGroup[caretaker] || "Unknown";
+                                return groupColors[group];
+                            })
                         .attr("opacity", 0.5);
 
-                const legend = svg.append("g").attr("transform", "translate(10, 10)");
+                    groupData.forEach(d => {
+                        caretakerCounts[d.qCaretaker] = (caretakerCounts[d.qCaretaker] || 0) + 1;
+                    });
 
-                // caretakerTypes.forEach((type, i) => {
-                //     legend.append("circle")
-                //         .attr("cx", 0)
-                //         .attr("cy", i * 15)
-                //         .attr("r", 5)
-                //         .attr("fill", colorScale(type));
+                    //legend
+                    const groupLegend = groupSvg.append("g").attr("transform", "translate(10, 10)");
+                    Object.entries(specificCaretakerCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .forEach(([caretaker, count], i) => {
 
-                //     legend.append("text")
-                //         .attr("x", 10)
-                //         .attr("y", i * 15 + 5)
-                //         .text(type)
-                //         .attr("font-size", "10px")
-                //         .attr("alignment-baseline", "middle");
-                // })
-
-                // caretakerTypes.forEach((type, i) => {
-                //     legend.append("circle")
-                //         .attr("cx", 0)
-                //         .attr("cy", i * 15)
-                //         .attr("r", 5)
-                //         .attr("fill", colorScale(type));
-
-                //     legend.append("text")
-                //         .attr("x", 10)
-                //         .attr("y", i * 15 + 5)
-                //         .text(`${type}: ${caretakerCounts[type]} trees`)
-                //         .attr("font-size", "10px")
-                //         .attr("alignment-baseline", "middle");
-                // })
-                Object.entries(groupCounts)
-                    .sort((a, b) => b[1] - a[1])
-                    .forEach(([group, count], i) => {
-                        legend.append("circle")
-                            .attr("cx", 0)
-                            .attr("cy", i * 20)
-                            .attr("r", 5)
-                            .attr("fill", groupColors[group]);
-
-                        legend.append("text")
-                            .attr("x", 10)
-                            .attr("y", i * 20 + 5)
-                            .text(`${group}: ${count || 0} trees`)
-                            .attr("font-size", "12px")
-                            .attr("alignment-baseline", "middle");
+                            groupLegend.append("text")
+                                .attr("x", 10)
+                                .attr("y", i * 20 + 5)
+                                .text(`${caretaker}: ${count} trees`)
+                                .attr("alignment-baseline", "middle");
+                        });
                 });
             };
             loadPlot();
